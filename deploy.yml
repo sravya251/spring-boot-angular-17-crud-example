@@ -11,6 +11,27 @@
     backend_port_container: 9090 # Standard Spring Boot port
 
   tasks:
+    - name: Install required packages
+      yum:
+        name:
+          - git
+          - docker
+        state: present
+
+    - name: Ensure backend log directory exists 
+      file:
+        path: /var/log/java_angular
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Start and enable Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
     - name: Ensure app directory exists
       file:
         path: "{{ app_dir }}"
@@ -21,7 +42,7 @@
       git:
         repo: "{{ repo_url }}"
         dest: "{{ project_dir }}"
-        version: master # Based on your screenshot showing 'master' branch
+        version: master 
         force: yes
 
     - name: Build backend Docker image
@@ -51,15 +72,47 @@
     frontend_port_host: 80 # Standard web port for frontend
     # Replace with your actual backend public IP
     backend_api_url: "http://43.205.214.93:9090/api" 
+    backend_proxy_url: "http://43.205.214.93:9090"
 
   tasks:
-    - name: Update Backend API URL in Angular environment
-      # This assumes your Angular project uses a standard environment file or service
-      # Adjust the path below if your API URL is defined elsewhere
-      replace:
-        path: "{{ project_dir }}/angular-17-client/src/app/services/tutorial.service.ts"
-        regexp: 'http://localhost:9090/api'
-        replace: "{{ backend_api_url }}"
+    - name: Install required packages
+      yum:
+        name:
+          - git
+          - docker
+        state: present
+
+    - name: Start and enable Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Clone or update repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: main
+        force: yes
+
+    - name: Update API URL in environment.prod.ts
+      lineinfile:
+        path: "{{ project_dir }}/angular-17-client/src/environments/environment.prod.ts"
+        regexp: "apiUrl:.*"
+        line: "  apiUrl: '{{ backend_proxy_url }}'"
+        backup: yes
+
+    # - name: Update Backend API URL in Angular environment
+    #   replace:
+    #     path: "{{ project_dir }}/angular-17-client/src/app/services/tutorial.service.ts"
+    #     regexp: 'http://localhost:9090/api'
+    #     replace: "{{ backend_api_url }}"
 
     - name: Build frontend Docker image
       command: docker build -t angular-17-client .
@@ -77,3 +130,11 @@
         -p {{ frontend_port_host }}:80
         --restart always
         angular-17-client
+    
+    - name: Verify running containers
+      command: docker ps
+      register: docker_output
+
+    - name: Display running containers
+      debug:
+        var: docker_output.stdout_lines
