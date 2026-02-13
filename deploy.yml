@@ -7,7 +7,7 @@
     repo_url: https://github.com/sravya251/spring-boot-angular-17-crud-example.git
     app_dir: /opt/app
     project_dir: "{{ app_dir }}/spring-boot-angular-17-crud-example"
-    backend_port_host: 8081
+    backend_port_host: 9090
     backend_port_container: 9090 # Standard Spring Boot port
 
   tasks:
