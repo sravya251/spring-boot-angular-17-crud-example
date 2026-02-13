@@ -1,15 +1,15 @@
-# Stage 1: Build the application
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+
+# ---------- BUILD STAGE ----------
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
+RUN mvn -B -q -e -DskipTests dependency:go-offline
 COPY src ./src
-# Build the JAR file and skip tests to save time
 RUN mvn clean package -DskipTests
 
-# Stage 2: Run the application
-FROM eclipse-temurin:17-jre-alpine
+# ---------- RUN STAGE ----------
+FROM eclipse-temurin:21-jre
 WORKDIR /app
-# Note: Ensure the JAR name matches your pom.xml artifactId/version
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/target/*.jar backend.jar
 EXPOSE 9090
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","backend.jar"]
