@@ -1,0 +1,79 @@
+# ================= BACKEND DEPLOYMENT =================
+- name: Deploy Spring Boot Backend
+  hosts: backend
+  become: yes
+
+  vars:
+    repo_url: https://github.com/sravya251/spring-boot-angular-17-crud-example.git
+    app_dir: /opt/app
+    project_dir: "{{ app_dir }}/spring-boot-angular-17-crud-example"
+    backend_port_host: 8081
+    backend_port_container: 9090 # Standard Spring Boot port
+
+  tasks:
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Clone or update repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: master # Based on your screenshot showing 'master' branch
+        force: yes
+
+    - name: Build backend Docker image
+      command: docker build -t spring-boot-server .
+      args:
+        chdir: "{{ project_dir }}/spring-boot-server"
+
+    - name: Stop old backend container
+      command: docker rm -f spring-boot-backend
+      ignore_errors: yes
+
+    - name: Run backend container
+      command: >
+        docker run -d
+        --name spring-boot-backend
+        -p {{ backend_port_host }}:{{ backend_port_container }}
+        --restart always
+        spring-boot-server
+
+# ================= FRONTEND DEPLOYMENT =================
+- name: Deploy Angular 17 Frontend
+  hosts: frontend
+  become: yes
+
+  vars:
+    project_dir: "/opt/app/spring-boot-angular-17-crud-example"
+    frontend_port_host: 80 # Standard web port for frontend
+    # Replace with your actual backend public IP
+    backend_api_url: "http://43.205.214.93:9090/api" 
+
+  tasks:
+    - name: Update Backend API URL in Angular environment
+      # This assumes your Angular project uses a standard environment file or service
+      # Adjust the path below if your API URL is defined elsewhere
+      replace:
+        path: "{{ project_dir }}/angular-17-client/src/app/services/tutorial.service.ts"
+        regexp: 'http://localhost:9090/api'
+        replace: "{{ backend_api_url }}"
+
+    - name: Build frontend Docker image
+      command: docker build -t angular-17-client .
+      args:
+        chdir: "{{ project_dir }}/angular-17-client"
+
+    - name: Stop old frontend container
+      command: docker rm -f angular-frontend
+      ignore_errors: yes
+
+    - name: Run frontend container
+      command: >
+        docker run -d
+        --name angular-frontend
+        -p {{ frontend_port_host }}:80
+        --restart always
+        angular-17-client
